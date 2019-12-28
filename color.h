@@ -14,7 +14,7 @@ void change_color(int); //function to change color of text
  * 10 -> bold magenta
  * 11 -> cyan
  * 12 -> bold cyan
- * 13 -> bg black
+ * 13 -> bg black (reset)
  * 14 -> bg red
  * 15 -> bg green
  * 16 -> bg yellow
