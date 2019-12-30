@@ -26,7 +26,7 @@ int determine_blanks(void); //determines what goes in the blank_count array, ret
 char player_names[8][100]; 
 int player_colors[] = {14, 17, 15, 16, 18, 19, 20, 13};
 int blank_count[8]; //how many spaces for proper even spacing for each name
-int player_cash[8];
+int player_cash[8] = {-1, -1, -1, -1, -1, -1, -1, -1}; //set to -1 if the player is eliminated from the game
 int player_space[8];
 int player_properties[4][22];
 int property_ownership[28]; //-1 = unowned
@@ -123,6 +123,7 @@ int main(){
 	int dice_roll_value; //used to store output of dice_roll for the case of the player in jail
 	int turn_over = 0; //used to determine when a player ends their turn
 	int case_flag = 1; //used to consider options only available from jail
+	int *p = &player_cash[0]; //pointer for if a player is in or not
 	int i;
 	
 	// Initializations //
@@ -147,21 +148,21 @@ int main(){
 		printf("Enter a name for Player %d: ", i+1);
 		fflush(stdout);
 		scanf("%s", player_names[i]);
-		player_cash[i] = 1500;
-		player_space[i] = 0;
-		jail_status[i] = 0;
+		player_cash[i] = 1500; //player is given $1500 starting cash
+		player_space[i] = 0; //player is initialized on the first space (GO)
+		jail_status[i] = 0; //player begins outside of jail
 	}
 
 	longest_name = determine_blanks();
 
 	// Getting into Gameplay //
 	// for now, assume players play in order
-	while(1){
+	while(player_count > 1){ //when player count == 1, the game is over (because there is only one person left alive)
 		turn_over = 0;
 		dice_roll_over = 0;
 		doubles_count = 0; //reset doubles counter each turn
 
-		while(!turn_over){
+		while(!turn_over && player_cash[player_turn] >= 0){ //ensure the turn is not over AND that the player has not gone bankrupt
 			change_color(player_colors[player_turn]);
 			printf("  ");
 			change_color(13); //reset background
@@ -178,6 +179,7 @@ int main(){
 				printf("1) Roll the Dice");
 				if(jail_status[player_turn]){
 					printf(" to get out of JAIL\n"); //if player is in jail
+					change_color(0);
 					printf("2) Pay $50 Fine to get out of JAIL");
 					if(goojf_ownership[0] == player_turn ||  goojf_ownership[1] == player_turn) printf("\n3) Use Get Out of Jail Free Card to get out of JAIL");
 				}
@@ -234,6 +236,7 @@ int main(){
 									else{
 										printf("%s is no longer in JAIL\n", player_names[player_turn]);
 										jail_status[player_turn] = 0;
+										dice_roll_over = 1; //to ensure rolling a doubles only gets you out of jail and nothing else
 									}
 								}
 
@@ -255,8 +258,15 @@ int main(){
 
 					else{
 						turn_over = 1;
-						player_turn++;
-						player_turn %= player_count;
+						while(1){
+							player_turn++;
+							p++;
+							if(player_turn >= 8){
+								player_turn = 0;
+								p = &player_cash[0];
+							}
+							if(*p >= 0) break;
+						}
 						printf("TEST: player_turn = %d\n", player_turn);
 						printf("\n");
 					}
@@ -273,8 +283,7 @@ int dice_roll(int player){
 
 	//some shit here is not working. I don't want to have to rely on flooding the code with fflush()
 
-	//to add: punishment for three doubles in a row
-	if(doubles_count == 2) printf("Be Careful! One more doubles and you go to JAIL...\n");
+	if(doubles_count == 2) printf("Be Careful! One more doubles and you go to JAIL...\n"); //add changing color, maybe change place of this statement (or fix fgetc bug)
 	printf("%s Roll!\n", player_names[player]);
 	fflush(stdout);
 	fgetc(stdin);
@@ -434,7 +443,9 @@ void property_action(int player){
 					transaction(-1, player, price[space]);
 					property_ownership[space] = player;
 					printf("TEST: property_ownership = %d\n", property_ownership[space]);
+					change_color(4);
 					printf("%s is now the owner of %s", player_names[player], space_names[player_space[player]]);
+					change_color(0);
 					done++;
 					break;
 
@@ -503,6 +514,7 @@ void game_stats(int option){
 	// 27 = Water Works
 	
 	int prop_blanks[] = {1, 8, 6, 7, 3, 4, 8, 6, 6, 5, 6, 6, 7, 6, 6, 7, 7, 7, 0, 2, 11, 12, 5, 0, 7, 11, 5, 10};
+	//array for proper spacing when printing property statuses
 
 	change_color(0);
 
@@ -510,12 +522,18 @@ void game_stats(int option){
 
 	switch(option){
 		case 1:
-			for(i = 0; i < player_count; i++){
-				printf("%s ", player_names[i]);
-				for(j = 0; j < blank_count[i]; j++){
-					printf(" ");
+			for(i = 0; i < 8; i++){
+				if(player_cash[i] >= 0){
+					printf("%s ", player_names[i]);
+					for(j = 0; j < blank_count[i]; j++){
+						printf(" ");
+					}
+					printf("has $%d", player_cash[i]);
+					change_color(player_colors[property_ownership[i]]);
+					printf("    ");
+					change_color(13);
+					printf("\n");
 				}
-				printf("has $%d\n", player_cash[i]);
 			}
 			printf("\n");
 			break;
@@ -586,37 +604,43 @@ void game_stats(int option){
 
 		case 3:
 			//idea to make ascii art of the board
-			for(i = 0; i < player_count; i++){
-				printf("%s ", player_names[i]);
-				for(j = 0; j < blank_count[i]; j++){
-					printf(" ");
-				}
-				printf("is ");
-				if(jail_status[i]) printf("in JAIL (11th space)\n"); //in case the player is in jail
-				else{
-					printf("on the ");
-					if(player_space[i]+1 < 10) printf(" ");
-					printf("%d", player_space[i]+1);
-					switch(player_space[i]){
-						case 0:
-						case 20:
-						case 30:
-							printf("st");
-							break;
-						case 1:
-						case 21:
-						case 31:
-							printf("nd");
-							break;
-						case 2:
-						case 22:
-						case 32:
-							printf("rd");
-							break;
-						default:
-							printf("th");
+			for(i = 0; i < 8; i++){
+				if(player_cash[i] >= 0){
+					printf("%s ", player_names[i]);
+					for(j = 0; j < blank_count[i]; j++){
+						printf(" ");
 					}
-					printf(" space on the board: %s\n", space_names[player_space[i]]);
+					printf("is ");
+					if(jail_status[i]) printf("in JAIL (11th space)"); //in case the player is in jail
+					else{
+						printf("on the ");
+						if(player_space[i]+1 < 10) printf(" ");
+						printf("%d", player_space[i]+1);
+						switch(player_space[i]){
+							case 0:
+							case 20:
+							case 30:
+								printf("st");
+								break;
+							case 1:
+							case 21:
+							case 31:
+								printf("nd");
+								break;
+							case 2:
+							case 22:
+							case 32:
+								printf("rd");
+								break;
+							default:
+								printf("th");
+						}
+						printf(" space on the board: %s", space_names[player_space[i]]);
+					}
+					change_color(player_colors[property_ownership[i]]);
+					printf("    ");
+					change_color(13);
+					printf("\n");
 				}
 			}
 			printf("\n");
@@ -643,17 +667,24 @@ void transaction(int gaining, int losing, int amount){ //to do: add intricacies 
 	if(losing != -1){
 		if(amount <= player_cash[losing]){
 			player_cash[losing] -= amount;
-			printf("%s now has $%d\n", player_names[losing], player_cash[losing]);
+			change_color(2);
+			printf("%s now has $%d", player_names[losing], player_cash[losing]);
+			change_color(0);
+			printf("\n");
 		}
 		else{ //if the player cannot pay what he owes
 			//to do: write a function to deal with debt (for now, assumes player goes bankrupt)
 			flag++;
 			amount = player_cash[losing];
-			player_cash[losing] = 0;
+			player_cash[losing] = -1; //set to -1 to express that this player is no longer in the game (will be changed for cases of debt)
+			player_count--; //there is 1 less player in the game now
 			printf("%s has gone BANKRUPT! %s will repossess all of their belongings:\n", player_names[losing], (player_names[gaining] >= 0 ? player_names[gaining] : "The bank"));
 			if(gaining != -1){
 				player_cash[gaining] += amount;
-				printf("%s now has $%d\n", player_names[gaining], player_cash[gaining]);
+				change_color(4);
+				printf("%s now has $%d", player_names[gaining], player_cash[gaining]);
+				change_color(0);
+				printf("\n");
 			}
 			//to do: create array to show whether a player is in (1) or out (0)
 			//to do: write for loops for either the bank or the other player to repossess the losing player's belongings (properties, etc.)
@@ -669,13 +700,16 @@ void transaction(int gaining, int losing, int amount){ //to do: add intricacies 
 					flag++;
 				}
 			}
-			if(flag) printf("%s has repossessed %s's Get Out of Jail Free Card%s\n", (player_names[gaining] >= 0 ? player_names[gaining] : "The bank"), player_names[losing], (flag > 2 ? "s" : ""));
+			if(flag > 1) printf("%s has repossessed %s's Get Out of Jail Free Card%s\n", (player_names[gaining] >= 0 ? player_names[gaining] : "The bank"), player_names[losing], (flag > 2 ? "s" : ""));
 		}
 	}
 
 	if(!flag && gaining != -1){
 		player_cash[gaining] += amount;
-		printf("%s now has $%d\n", player_names[gaining], player_cash[gaining]);
+		change_color(4);
+		printf("%s now has $%d", player_names[gaining], player_cash[gaining]);
+		change_color(0);
+		printf("\n");
 	}
 
 	return;
@@ -822,13 +856,11 @@ void chance(int player){
 			printf("\"You have been Elected Chairman of the Board\nPay Each Player $50\"\n");
 			change_color(0);
 			printf("%s owes %d players $50 (totalling $%d)\n", player_names[player], player_count-1, 50 * (player_count-1));
-			printf("WIP: Fix to work with players_still_in array\n");
-			/*
-			transaction(player, -50 * (player_count-1));
-			for(i = 0; i < player_count; i++){
-				if(!(player = i)) transaction(i, 50);
+			for(i = 0; i < 8; i++){
+				if(player_cash[i] >= 0){
+					if(player != i) transaction(i, player, 50);
+				}
 			}
-			*/
 			break;
 
 		case 12:
@@ -850,7 +882,7 @@ void chance(int player){
 		case 13:
 			printf("\"Make General Repairs on All Your Property\nFor each House Pay $25\nFor Each Hotel Pay $100\"\n");
 			change_color(0);
-			printf("WIP");
+			printf("WIP"); //need to set up houses and such first
 			break;
 
 
@@ -935,13 +967,11 @@ void community_chest(int player){
 			printf("\"Grand Opera Opening\nCollect $50 from every Player for Opening Night Seats\"\n");
 			change_color(0);
 			printf("%s shall collect $50 from %d players (totalling $%d)\n", player_names[player], player_count-1, 50 * (player_count-1));
-			printf("WIP: Fix to work with players_still_in array\n");
-			/*
-			for(i = 0; i < player_count; i++){
-				if(!(player = i)) transaction(i, -50);
+			for(i = 0; i < 8; i++){
+				if(player_cash[i] >= 0){
+					if(player != i) transaction(player, i, 50);
+				}
 			}
-			transaction(player, 50 * (player_count-1));
-			*/
 			break;
 
 		case 6:
