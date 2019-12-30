@@ -529,7 +529,7 @@ void game_stats(int option){
 						printf(" ");
 					}
 					printf("has $%d", player_cash[i]);
-					change_color(player_colors[property_ownership[i]]);
+					change_color(player_colors[i]);
 					printf("    ");
 					change_color(13);
 					printf("\n");
@@ -637,7 +637,7 @@ void game_stats(int option){
 						}
 						printf(" space on the board: %s", space_names[player_space[i]]);
 					}
-					change_color(player_colors[property_ownership[i]]);
+					change_color(player_colors[i]);
 					printf("    ");
 					change_color(13);
 					printf("\n");
