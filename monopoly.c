@@ -42,6 +42,7 @@ int player_count = 0; //how many players
 int longest_name; //length in chars of the longest entered name
 int dice_roll_over;
 int doubles_count; //counts number of doubles rolled (if this number exceeds 2, go directly to jail)
+int jail_roll_count[8]; //counts number of attempts to roll out of jail for each player
 int chance_remaining_cards = 15;
 int cc_remaining_cards = 15;
 
@@ -177,8 +178,8 @@ int main(){
 			printf("\n");
 			if(!dice_roll_over){
 				printf("1) Roll the Dice");
-				if(jail_status[player_turn]){
-					printf(" to get out of JAIL\n"); //if player is in jail
+				if(jail_status[player_turn]){ //if player is in jail
+					printf(" to get out of JAIL\n"); 
 					change_color(0);
 					printf("2) Pay $50 Fine to get out of JAIL");
 					if(goojf_ownership[0] == player_turn ||  goojf_ownership[1] == player_turn) printf("\n3) Use Get Out of Jail Free Card to get out of JAIL");
@@ -214,25 +215,35 @@ int main(){
 				default:
 					if(!dice_roll_over){
 
-						if(int_input == 2 && jail_status[player_turn]){
+						if(int_input == 2 && jail_status[player_turn]){ //player has payed to get out of jail
 							transaction(-1, player_turn, 50);
 							jail_status[player_turn] = 0;
 							printf("%s is no longer in JAIL\n\n", player_names[player_turn]);
 						}
 
-						else if(int_input == 3 && jail_status[player_turn] && (goojf_ownership[0] == player_turn || goojf_ownership[1] == player_turn)){
+						else if(int_input == 3 && jail_status[player_turn] && (goojf_ownership[0] == player_turn || goojf_ownership[1] == player_turn)){ //player has used a get out of jail free card to escape jail
 							if(goojf_ownership[0] == player_turn) goojf_ownership[0] == -1;
 							else goojf_ownership[1] = -1;
 							printf("%s is no longer in JAIL\n\n", player_names[player_turn]);
 						}
 
 						else{
-							dice_roll_value = dice_roll(player_turn);
+							dice_roll_value = dice_roll(player_turn); //player has rolled the dice (either to attempt to escape jail or to move)
 
 							if(doubles_count < 3){ //ensure that the player did not just roll doubles a third time and went to jail
-								if(jail_status[player_turn]){
+								if(jail_status[player_turn]){ //is the player in jail?
 
-									if(dice_roll_over) printf("%s shall remain in JAIL\n\n", player_names[player_turn]); //did not roll doubles
+									if(dice_roll_over){
+										jail_roll_count[player_turn]++;
+										if(jail_roll_count[player_turn] < 3) printf("%s shall remain in JAIL\n\n", player_names[player_turn]); //did not roll doubles
+										if(jail_roll_count[player_turn] == 3){ //player has attempted to roll doubles unsuccessfully 3 times and is forced to pay the fine
+											printf("%s, you have attempted to roll doubles unsuccessfully 3 times and must now pay the $50 fine\n", player_names[player_turn]);
+											transaction(-1, player_turn, 50);
+											printf("%s is no longer in JAIL\n\n", player_names[player_turn]);
+											jail_status[player_turn] = 0;
+											dice_roll_value = dice_roll(player_turn); //reroll now that out of jail
+										}
+									}
 									else{
 										printf("%s is no longer in JAIL\n", player_names[player_turn]);
 										jail_status[player_turn] = 0;
@@ -717,6 +728,7 @@ void transaction(int gaining, int losing, int amount){ //to do: add intricacies 
 
 void go_to_jail(int player){
 	jail_status[player] = 1;
+	jail_roll_count[player] = 0; //reset number of attempts to roll out of jail (max 3 rolls before paying)
 	player_space[player] = 10; //player put in jail, player sent to the jail space
 	dice_roll_over = 1; //dice roll is immediately over
 	printf("%s is now in JAIL\n", player_names[player]);
