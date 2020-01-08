@@ -914,23 +914,26 @@ void build_house(int player){
 		if(!monopoly_status[group_option-1] || property_ownership[starting_prop] != player) return; //simulate if a plyaer selects an group_option that is invalid
 		else{
 			while(1){
-				for(i = 0; i < 6; i++){ //reset valid options
+				for(i = 0; i < 6; i++){ //reset valid options and valid builds
 					valid_option[i] = 0; 
+					if(i < 3) valid_build[i] = 1; //only 3 indeces for valid_build, by default are all valid
 				}
 
 				printf("%s, you have $%d\n", player_names[player], player_cash[player]);
 				printf("What property do you want to build or sell a house on?\n");
 				prop = starting_prop;
 				h = &house_count[starting_prop];
-				valid_build = {1, 1, 1}; //by default, all 3 are valid builds
 				if(group_prop_count == 2){ //checking for properties with more houses in size 2 groups
 					if(*h > *(h+1)) valid_build[0] = 0; //prop 1 has more houses
 					else if(*h < *(h+1)) valid_build[1] = 0; //prop 2 has more houses
 				}
 				else{ //checking for properties with more houses in size 3 groups
-
+					if(*h > *(h+1) || *h > *(h+2)) valid_build[0] = 0;
+					if(*(h+1) > *h || *(h+1) > *(h+2)) valid_build[1] = 0;
+					if(*(h+2) > *h || *(h+2) > *(h+1)) valid_build[2] = 0;
+				}
 				for(i = 1; i <= group_prop_count*2; i+=2){
-					if(*h < 5){ //make sure there isn't already a hotel (5 houses)
+					if(*h < 5 && valid_build[(i-1)/2]){ //make sure there isn't already a hotel (5 houses) and that the property doesn't have more houses (equal building rule)
 						printf("%d) Build a House on %s (currently %d house%s, houses cost $%d)\n", i, prop_names[prop], *h, (*h != 1 ? "s" : ""), house_costs[group_option-1]); 
 						valid_option[i-1] = 1;
 					}
