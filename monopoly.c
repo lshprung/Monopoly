@@ -7,6 +7,7 @@
 int dice_roll(int); //what happens when you roll the dice, returns the value of the dice and whether its a double
 void space_action(int); //what happens when you land on the space
 void property_action(int); //what happens when you land on a property
+void check_monopoly(int); //function to check if a monopoly has been made (the argument is the space that has just been acquired)
 void game_stats(int); //allow for the viewing of various game stats, needs to know which game stat to show
 void transaction(int, int, int);
 //handles all transactions in game
@@ -28,8 +29,11 @@ int player_colors[] = {14, 17, 15, 16, 18, 19, 20, 13};
 int blank_count[8]; //how many spaces for proper even spacing for each name
 int player_cash[8] = {-1, -1, -1, -1, -1, -1, -1, -1}; //set to -1 if the player is eliminated from the game
 int player_space[8];
-int player_properties[4][22];
 int property_ownership[28]; //-1 = unowned
+int monopoly_status[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+int group_reps[] = {0, 2, 5, 8, 11, 14, 17, 20}; //properties that represent their respective group (to determine who owns that monopoly
+int house_count[28]; //number of houses on each property
+//8 property groups (0 if not a monopoly (all owned by 1 player), 1 if yes), if it is set to 1, building houses becomes possible
 int goojf_ownership[] = {-1, -1};
 //get out of jail free cards: 0th is from chance deck, 1th is cc deck
 //-1 = unowned, player # otherwise
@@ -130,6 +134,7 @@ int main(){
 	// Initializations //
 	for(i = 0; i < 28; i++){ //all properties initially owned by the bank
 		property_ownership[i] = -1;
+		house_count[i] = 0;
 	}
 	
 	srand((int) time(NULL));
@@ -224,6 +229,8 @@ int main(){
 						else if(int_input == 3 && jail_status[player_turn] && (goojf_ownership[0] == player_turn || goojf_ownership[1] == player_turn)){ //player has used a get out of jail free card to escape jail
 							if(goojf_ownership[0] == player_turn) goojf_ownership[0] == -1;
 							else goojf_ownership[1] = -1;
+							jail_status[player_turn] = 0;
+							printf("DEBUG OUTPUT: goojf chance: %s\ngoojf cc: %s\n", (goojf_ownership[0] >= 0 ? player_names[goojf_ownership[0]] : "the bank"), (goojf_ownership[1] >= 0 ? player_names[goojf_ownership[1]] : "the bank"));
 							printf("%s is no longer in JAIL\n\n", player_names[player_turn]);
 						}
 
@@ -309,7 +316,7 @@ int dice_roll(int player){
 	else dice_roll_over = 1;
 	printf("%s rolled %d", player_names[player], dice1+dice2);
 	if(doubles_count == 3){
-		printf("You rolled 3 doubles. %s, GO TO JAIL\n", player_names[player]);
+		printf("\nYou rolled 3 doubles. %s, GO TO JAIL\n", player_names[player]);
 		go_to_jail(player);
 	}
 	fflush(stdout);
@@ -377,34 +384,34 @@ void property_action(int player){
 	//printf("WIP");
 
 	// Property Array Guide //
-	// 00 = Mediterranean Avenue
-	// 01 = Baltic Avenue
-	// 02 = Oriental Avenue
-	// 03 = Vermont Avenue
-	// 04 = Connecticut Avenue
-	// 05 = St. Charles Place
-	// 06 = States Avenue
-	// 07 = Virginia Avenue
-	// 08 = St. James Place
-	// 09 = Tennessee Avenue
-	// 10 = New York Avenue
-	// 11 = Kentucky Avenue
-	// 12 = Indiana Avenue
-	// 13 = Illinois Avenue
-	// 14 = Atlantic Avenue
-	// 15 = Ventnor Avenue
-	// 16 = Marvin Gardens
-	// 17 = Pacific Avenue
-	// 18 = North Carolina Avenue
-	// 19 = Pennsylvania Avenue
-	// 20 = Park Place
-	// 21 = Boardwalk
-	// 22 = Reading Railroad (here begins non-buildable properties)
-	// 23 = Pennsylvania Railroad
-	// 24 = B & O Railroad
-	// 25 = Short Line
-	// 26 = Electric Company
-	// 27 = Water Works
+	// 00 = Mediterranean Avenue                                    --> 0 property/monopoly group
+	// 01 = Baltic Avenue                                           --> 0 property/monopoly group
+	// 02 = Oriental Avenue                                         --> 1 property/monopoly group
+	// 03 = Vermont Avenue                                          --> 1 property/monopoly group
+	// 04 = Connecticut Avenue                                      --> 1 property/monopoly group
+	// 05 = St. Charles Place                                       --> 2 property/monopoly group
+	// 06 = States Avenue                                           --> 2 property/monopoly group
+	// 07 = Virginia Avenue                                         --> 2 property/monopoly group
+	// 08 = St. James Place                                         --> 3 property/monopoly group
+	// 09 = Tennessee Avenue                                        --> 3 property/monopoly group
+	// 10 = New York Avenue                                         --> 3 property/monopoly group
+	// 11 = Kentucky Avenue                                         --> 4 property/monopoly group
+	// 12 = Indiana Avenue                                          --> 4 property/monopoly group
+	// 13 = Illinois Avenue                                         --> 4 property/monopoly group
+	// 14 = Atlantic Avenue                                         --> 5 property/monopoly group
+	// 15 = Ventnor Avenue                                          --> 5 property/monopoly group
+	// 16 = Marvin Gardens                                          --> 5 property/monopoly group
+	// 17 = Pacific Avenue                                          --> 6 property/monopoly group
+	// 18 = North Carolina Avenue                                   --> 6 property/monopoly group
+	// 19 = Pennsylvania Avenue                                     --> 6 property/monopoly group
+	// 20 = Park Place                                              --> 7 property/monopoly group
+	// 21 = Boardwalk                                               --> 7 property/monopoly group
+	// 22 = Reading Railroad (here begins non-buildable properties) 
+	// 23 = Pennsylvania Railroad                                   
+	// 24 = B & O Railroad                                          
+	// 25 = Short Line                                              
+	// 26 = Electric Company                                        
+	// 27 = Water Works                                             
 
 	int price[] = {60, 60, 100, 100, 120, 140, 140, 160, 180, 180, 200, 220, 220, 240, 260, 260, 280, 300, 300, 320, 350, 400, 200, 200, 200, 200, 150, 150}; //price of each unowned property
 	int rent[][6] = {{2, 10, 30, 90, 160, 250}, {4, 20, 60, 180, 320, 450}, {6, 30, 90, 270, 400, 550}, {6, 30, 90, 270, 400, 550}, {8, 40, 100, 300, 450, 600}, {10, 50, 150, 450, 625, 750}, {10, 50, 150, 450, 625, 750}, {12, 60, 180, 500, 700, 900}, {14, 70, 200, 550, 750, 950}, {14, 70, 200, 550, 750, 950}, {16, 80, 220, 600, 800, 1000}, {18, 90, 250, 700, 875, 1050}, {18, 90, 250, 700, 875, 1050}, {20, 100, 300, 750, 925, 1100}, {22, 110, 330, 800, 975, 1150}, {22, 110, 330, 800, 975, 1150}, {24, 120, 360, 850, 1025, 1200}, {26, 130, 390, 900, 1100, 1275}, {26, 130, 390, 900, 1100, 1275}, {28, 150, 450, 1000, 1200, 1400}, {35, 175, 500, 1100, 1300, 1500}, {50, 200, 600, 1400, 1700, 2000}, {25, 50, 100, 200, 0, 0}, {25, 50, 100, 200, 0, 0}, {25, 50, 100, 200, 0, 0}, {25, 50, 100, 200, 0, 0}};
@@ -418,19 +425,23 @@ void property_action(int player){
 	
 	//to add: mortgage prices
 	
-	int space_conversion[][2] = {{1, 0}, {3, 1}, {5, 22}, {6, 2}, {8, 3}, {9, 4}, {11, 5}, {12, 26}, {13, 6}, {14, 7}, {15, 23}, {16, 8}, {18, 9}, {19, 10}, {21, 11}, {23, 12}, {24, 13}, {25, 24}, {26, 14}, {27, 15}, {28, 27}, {29, 16}, {31, 17}, {32, 18}, {34, 19}, {35, 25}, {37, 20}, {39, 21}};
+	int space_conversion[][3] = {{1, 0, 0}, {3, 1, 0}, {5, 22, 8}, {6, 2, 1}, {8, 3, 1}, {9, 4, 1}, {11, 5, 2}, {12, 26, 9}, {13, 6, 2}, {14, 7, 2}, {15, 23, 8}, {16, 8, 3}, {18, 9, 3}, {19, 10, 3}, {21, 11, 4}, {23, 12, 4}, {24, 13, 4}, {25, 24, 8}, {26, 14, 5}, {27, 15, 5}, {28, 27, 9}, {29, 16, 5}, {31, 17, 6}, {32, 18, 6}, {34, 19, 6}, {35, 25, 8}, {37, 20, 9}, {39, 21, 9}};
 	//space_conversion index guide:
 	//0 = literal space
 	//1 = space according to property index
+	//2 = group the property belongs to (8 is railroads, 9 is utilities)
 	
 	int space;
-	int done = 0;
+	int group;
+	int final_cost; //final cost assuming player owns the property after determining houses and monopolies
+	int done = 0; //used to end this menu if options 1 or 2 are submitted
 	int input;
 	int i = 0;
 
 	while(1){
-		if(player_space[player] == space_conversion[i][0]){
-			space = space_conversion[i][1];
+		if(player_space[player] == space_conversion[i][0]){ //search for space that player landed on
+			space = space_conversion[i][1]; //convert it from the array
+			group = space_conversion[i][2]; //store the group that the property belongs to
 			break;
 		}
 		i++;
@@ -451,13 +462,16 @@ void property_action(int player){
 
 			switch(input){
 				case 1:
-					transaction(-1, player, price[space]);
-					property_ownership[space] = player;
-					printf("TEST: property_ownership = %d\n", property_ownership[space]);
-					change_color(4);
-					printf("%s is now the owner of %s", player_names[player], space_names[player_space[player]]);
-					change_color(0);
-					done++;
+					if(price[space] > player_cash[player]) printf("%s, you do not have enough money to buy this property!\n\n", player_names[player]);
+					else{
+						transaction(-1, player, price[space]);
+						property_ownership[space] = player;
+						change_color(4);
+						printf("%s is now the owner of %s", player_names[player], space_names[player_space[player]]);
+						change_color(0);
+						if(space <= 21) check_monopoly(space); //function will check if a monopoly has been made and update the monopoly_status array accordingly
+						done++;
+					}
 					break;
 
 				case 2:
@@ -480,17 +494,102 @@ void property_action(int player){
 	}
 
 	else{
-		if(property_ownership[space] == player) printf("Relax, you own this property\n");
-		else{
-			printf("%s owns %s. %s owes %s $%d\n", player_names[property_ownership[space]], space_names[player_space[player]], player_names[player], player_names[property_ownership[space]], rent[space][0]); //later, add an integer to tell how many houses are on the property
-			transaction(property_ownership[space], player, rent[space][0]); 
+		final_cost = rent[space][house_count[space]]; //calculate how much it costs to land on this property
+		if(!house_count[space] && monopoly_status[group]) final_cost*=2; //double this if it is a monopoly with 0 houses
+		if(property_ownership[space] == player) printf("Relax, you own this property\n"); //if player owns the property
+		else{ //if somebody else owns the property
+			printf("%s owns %s. %s owes %s $%d\n", player_names[property_ownership[space]], space_names[player_space[player]], player_names[player], player_names[property_ownership[space]], final_cost); 
+			transaction(property_ownership[space], player, final_cost); 
 		}
 	}
 
 	return;
 }
 
+void check_monopoly(int space){
+	int flag = 0; //set to 1 if a monopoly has been made
+	int size; //is it a 2 or 3 property group?
+	int group; //what group does this space belong to?
+	char group_name[][13] = {"PURPLE/BROWN", "LIGHT BLUE", "PINK", "ORANGE", "RED", "YELLOW", "GREEN", "DARK BLUE"};
+	int owner; //owner of the property (by int value)
+	int i;
+
+	switch(space){
+		case 0:
+		case 1:
+			size = 2;
+			space = 0;
+			group = 0;
+			break;
+		case 2:
+		case 3:
+		case 4:
+			size = 3;
+			space = 2;
+			group = 1;
+			break;
+		case 5:
+		case 6:
+		case 7:
+			size = 3;
+			space = 5;
+			group = 2;
+			break;
+		case 8:
+		case 9:
+		case 10:
+			size  = 3;
+			space = 8;
+			group = 3;
+			break;
+		case 11:
+		case 12:
+		case 13:
+			size = 3;
+			space = 11;
+			group = 4;
+			break;
+		case 14:
+		case 15:
+		case 16:
+			size  = 3;
+			space = 14;
+			group = 5;
+			break;
+		case 17:
+		case 18:
+		case 19:
+			size  = 3;
+			space = 17;
+			group = 6;
+			break;
+		case 20:
+		case 21:
+			size = 2;
+			space = 20;
+			group = 7;
+			break;
+		default:
+			printf("ERROR: invalid argument\n");
+			return;
+	}
+
+	owner = property_ownership[space];
+
+	for(i = size; i >= 2; i--){ //check if each property is owned by the same person
+		space++;
+		if(owner != property_ownership[space]) return;
+	}
+
+	//a monopoly has been made:
+	monopoly_status[group] = 1;
+	printf("\n%s now has a monopoly on the %s property group!\n", player_names[property_ownership[space]], group_name[group]);
+
+	return;
+}
+
 void game_stats(int option){
+	int group;
 	int i;
 	int j;
 
@@ -525,6 +624,7 @@ void game_stats(int option){
 	// 27 = Water Works
 	
 	int prop_blanks[] = {1, 8, 6, 7, 3, 4, 8, 6, 6, 5, 6, 6, 7, 6, 6, 7, 7, 7, 0, 2, 11, 12, 5, 0, 7, 11, 5, 10};
+	int color_blanks[] = {0, 2, 8, 6, 9, 6, 7, 3};
 	//array for proper spacing when printing property statuses
 
 	change_color(0);
@@ -551,18 +651,43 @@ void game_stats(int option){
 
 		case 2:
 			for(i = 0; i < 28; i++){
+				group = -1; //reset group each loop
 				if(i == 0){
 					printf("PROPERTIES\n");
 				}
 				if(i >= 0 && i < 22 && property_ownership[i] != -1){
-					if(i <= 1) change_color(9);
-					else if(i <= 4) change_color(12);
-					else if(i <= 7) change_color(10);
-					else if(i <= 10) change_color(5);
-					else if(i <= 13) change_color(1);
-					else if(i <= 16) change_color(6);
-					else if(i <= 19) change_color(3);
-					else if(i <= 21) change_color(11);
+					if(i <= 1){
+						change_color(9);
+						group = 0;
+					}
+					else if(i <= 4){
+						change_color(12);
+						group = 1;
+					}
+					else if(i <= 7){
+						change_color(10);
+						group = 2;
+					}
+					else if(i <= 10){
+						change_color(5);
+						group = 3;
+					}
+					else if(i <= 13){
+						change_color(1);
+						group = 4;
+					}
+					else if(i <= 16){
+						change_color(6);
+						group = 5;
+					}
+					else if(i <= 19){
+						change_color(3);
+						group = 6;
+					}
+					else if(i <= 21){
+						change_color(11);
+						group = 7;
+					}
 				}
 				else if(i == 22) printf("RAILROADS\n");
 				else if(i == 26) printf("UTILITIES\n");
@@ -586,6 +711,14 @@ void game_stats(int option){
 				else if(i <= 16) printf("YELLOW");
 				else if(i <= 19) printf("GREEN");
 				else if(i <= 21) printf("DARK BLUE");
+				if(group >= 0 && monopoly_status[group]){ //the property has a monopoly, so list the number of houses
+					printf("; ");
+					for(j = 0; i < color_blanks[group]; i++){
+						printf(" ");
+					}
+					printf("%d house%s", house_count[i], (house_count[i] != 1 ? "s" : ""));
+				}
+
 				if(property_ownership[i] >= 0){ //color flag to show ownership
 					change_color(player_colors[property_ownership[i]]);
 					printf("    ");
@@ -675,7 +808,7 @@ void transaction(int gaining, int losing, int amount){ //to do: add intricacies 
 	int i;
 	int flag = 0; //for use on goojf repossession
 
-	if(losing != -1){
+	if(losing != -1){ //if a player is losing money...
 		if(amount <= player_cash[losing]){
 			player_cash[losing] -= amount;
 			change_color(2);
@@ -689,20 +822,18 @@ void transaction(int gaining, int losing, int amount){ //to do: add intricacies 
 			amount = player_cash[losing];
 			player_cash[losing] = -1; //set to -1 to express that this player is no longer in the game (will be changed for cases of debt)
 			player_count--; //there is 1 less player in the game now
-			printf("%s has gone BANKRUPT! %s will repossess all of their belongings:\n", player_names[losing], (player_names[gaining] >= 0 ? player_names[gaining] : "The bank"));
-			if(gaining != -1){
+			printf("%s has gone BANKRUPT! %s will repossess all of their belongings:\n", player_names[losing], (gaining >= 0 ? player_names[gaining] : "The bank"));
+			if(gaining != -1){ //player when bankrupt to another player (as opposed to the bank)
 				player_cash[gaining] += amount;
 				change_color(4);
 				printf("%s now has $%d", player_names[gaining], player_cash[gaining]);
 				change_color(0);
 				printf("\n");
 			}
-			//to do: create array to show whether a player is in (1) or out (0)
-			//to do: write for loops for either the bank or the other player to repossess the losing player's belongings (properties, etc.)
 			for(i = 0; i < 28; i++){
 				if(property_ownership[i] == losing){ //property repossession
 					property_ownership[i] = gaining;
-					printf("%s has repossessed (and is now the owner) of %s\n", (player_names[gaining] >= 0 ? player_names[gaining] : "The bank"), prop_names[i]);
+					printf("%s has repossessed (and is now the owner) of %s\n", (gaining >= 0 ? player_names[gaining] : "The bank"), prop_names[i]);
 				}
 			}
 			for(i = 0; i < 2; i++){ //goojf card repossession
@@ -711,7 +842,7 @@ void transaction(int gaining, int losing, int amount){ //to do: add intricacies 
 					flag++;
 				}
 			}
-			if(flag > 1) printf("%s has repossessed %s's Get Out of Jail Free Card%s\n", (player_names[gaining] >= 0 ? player_names[gaining] : "The bank"), player_names[losing], (flag > 2 ? "s" : ""));
+			if(flag > 1) printf("%s has repossessed %s's Get Out of Jail Free Card%s\n", (gaining >= 0 ? player_names[gaining] : "The bank"), player_names[losing], (flag > 2 ? "s" : ""));
 		}
 	}
 
@@ -735,8 +866,124 @@ void go_to_jail(int player){
 }
 
 void build_house(int player){
-	printf("WIP\n");
+	//printf("WIP\n");
 
+	int flag; //used to ensure the player has at least one monopoly
+	char group_name[][13] = {"PURPLE/BROWN", "LIGHT BLUE", "PINK", "ORANGE", "RED", "YELLOW", "GREEN", "DARK BLUE"};
+	int house_costs[8] = {50, 50, 100, 100, 150, 150, 200, 200};
+	int valid_build[3]; //used to ensure that you are not ahead in building in any one property
+	int option; //regular option
+	int group_option; //player input, necessary to remember since it relates to the group in question
+	int group_prop_count; //2 or 3
+	int starting_prop; //first property in the group
+	int valid_option[6]; //make it easier to determine if a selected option is valid
+	int prop; //later used to go through prop_names
+	int *p; //used to go through monopoly statuses
+	int *h; //used later for going through house counts
+	int i;
+
+	while(1){
+		i = 0;
+		p = &monopoly_status[0];
+		flag = 0;
+		while(i < 8){
+			if(*p && player == property_ownership[group_reps[i]]){ //ensure there is a monopoly owned by the player before listing the option
+				if(!flag) printf("What Group do you want to Build/Sell in?\n");
+				flag++;
+				printf("%d) Build/Sell Houses in the %s group\n", i+1, group_name[i]);
+			}
+			i++;
+			p++;
+		}
+		if(!flag){ //the player does not have any monopolies: inform them and send them back
+			printf("You do not have any monopolies and cannot build or sell any houses yet\n\n");
+			return;
+		}
+
+		printf("9) Done\n");
+		fflush(stdout);
+		scanf("%d", &group_option);
+		printf("\n");
+
+		if(group_option >= 1 && group_option <= 8){
+			starting_prop = group_reps[group_option-1];
+			group_prop_count = (group_option == 1 || group_option == 8 ? 2 : 3);
+		}
+		else return;
+
+		if(!monopoly_status[group_option-1] || property_ownership[starting_prop] != player) return; //simulate if a plyaer selects an group_option that is invalid
+		else{
+			while(1){
+				for(i = 0; i < 6; i++){ //reset valid options
+					valid_option[i] = 0; 
+				}
+
+				printf("%s, you have $%d\n", player_names[player], player_cash[player]);
+				printf("What property do you want to build or sell a house on?\n");
+				prop = starting_prop;
+				h = &house_count[starting_prop];
+				valid_build = {1, 1, 1}; //by default, all 3 are valid builds
+				if(group_prop_count == 2){ //checking for properties with more houses in size 2 groups
+					if(*h > *(h+1)) valid_build[0] = 0; //prop 1 has more houses
+					else if(*h < *(h+1)) valid_build[1] = 0; //prop 2 has more houses
+				}
+				else{ //checking for properties with more houses in size 3 groups
+
+				for(i = 1; i <= group_prop_count*2; i+=2){
+					if(*h < 5){ //make sure there isn't already a hotel (5 houses)
+						printf("%d) Build a House on %s (currently %d house%s, houses cost $%d)\n", i, prop_names[prop], *h, (*h != 1 ? "s" : ""), house_costs[group_option-1]); 
+						valid_option[i-1] = 1;
+					}
+					if(*h > 0){ //make sure there is at least one house to sell
+						printf("%d) Sell  a House on %s (currently ", i+1, prop_names[prop]); 
+						if(*h == 5) printf("a hotel, ");
+						else printf("%d house%s, ", *h, (*h != 1 ? "s" : ""));
+						printf("houses sell for $%d)\n", house_costs[group_option-1]/2);
+						valid_option[i] = 1;
+					}
+					prop++;
+					h++;
+				}
+				printf("9) Go Back\n");
+				fflush(stdout);
+				scanf("%d", &option);
+				printf("\n");
+
+				if(option >= 1 && option <= 6 && valid_option[option-1]){
+					prop = starting_prop;
+					h = &house_count[starting_prop];
+					prop+=(option-1)/2; //determine where to point (to the correct property)
+					h+=(option-1)/2; //determine where to point (to the correct house count)
+					printf("\n");
+					switch(option){
+						case 1: //player bought a house
+						case 3:
+						case 5:
+							transaction(-1, player, house_costs[group_option-1]);
+							house_count[starting_prop+((option-1)/2)]++;
+							printf("%s bought a house on %s. There ", player_names[player], prop_names[prop]);
+							if(*h == 5) printf("is now a hotel ");
+							else printf("%s now %d house%s ", (*h != 1 ? "are" : "is"), *h, (*h != 1 ? "s" : ""));
+							printf("on %s\n\n", prop_names[prop]);
+							break;
+
+						case 2: //player sold a house
+						case 4:
+						case 6:
+							transaction(player, -1, house_costs[group_option-1]/2);
+							house_count[starting_prop+((option-1)/2)]--;
+							printf("%s sold a house on %s. There %s now %d houses on %s\n\n", player_names[player], prop_names[prop], (*h != 1 ? "are" : "is"), *h, prop_names[prop]);
+							break;
+
+						default:
+							printf("ERROR: Shouldn't get here\n");
+
+					}
+				}
+				else break;
+			}
+		}
+	}
 	return;
 }
 
@@ -768,6 +1015,8 @@ void chance(int player){
 	// 15 = Advance token to the nearest railroad...
 	
 	int card = chance_deck[chance_remaining_cards];
+	int total = 0; //for use in general repairs
+	int j;
 	int i;
 
 	chance_remaining_cards--;
@@ -894,7 +1143,29 @@ void chance(int player){
 		case 13:
 			printf("\"Make General Repairs on All Your Property\nFor each House Pay $25\nFor Each Hotel Pay $100\"\n");
 			change_color(0);
-			printf("WIP"); //need to set up houses and such first
+			//printf("WIP"); //need to set up houses and such first
+			for(i = 0; i < 8; i++){
+				if(monopoly_status[i] && property_ownership[group_reps[i]] == player){ //is there a monopoly, and does the player own it(there can't be any houses if there isn't
+					switch(i){
+						case 0:
+						case 7:
+							j = 1; //j+1 properties in the group
+							break;
+
+						default:
+							j = 2;
+					}
+					for(j; j >= 0; j--){
+						if(house_count[group_reps[i]+j] < 5) total+=(house_count[group_reps[i]+j] * 25);
+						if(house_count[group_reps[i]+j] == 5) total+=100;
+					}
+				}
+			}
+			if(total){
+				printf("%s must pay $%d in repairs\n", player_names[player], total);
+				transaction(-1, player, total);
+			}
+			else printf("%s does not own any houses or hotels\n", player_names[player]);
 			break;
 
 
@@ -934,6 +1205,8 @@ void community_chest(int player){
 	// 15 = Life Insurance Matures Collect $100
 	
 	int card = cc_deck[cc_remaining_cards];
+	int total = 0;
+	int j;
 	int i;
 
 	cc_remaining_cards--;
@@ -1007,7 +1280,29 @@ void community_chest(int player){
 		case 9:
 			printf("\"You are Assessed for Street Repairs\n$40 Per House\n$115 per Hotel\"\n");
 			change_color(0);
-			printf("WIP"); //need to add houses
+			//printf("WIP"); //need to set up houses and such first
+			for(i = 0; i < 8; i++){
+				if(monopoly_status[i] && property_ownership[group_reps[i]] == player){ //is there a monopoly, and does the player own it(there can't be any houses if there isn't
+					switch(i){
+						case 0:
+						case 7:
+							j = 1; //j+1 properties in the group
+							break;
+
+						default:
+							j = 2;
+					}
+					for(j; j >= 0; j--){
+						if(house_count[group_reps[i]+j] < 5) total+=(house_count[group_reps[i]+j] * 40);
+						if(house_count[group_reps[i]+j] == 5) total+=115;
+					}
+				}
+			}
+			if(total){
+				printf("%s must pay $%d in repairs\n", player_names[player], total);
+				transaction(-1, player, total);
+			}
+			else printf("%s does not own any houses or hotels\n", player_names[player]);
 			break;
 
 		case 10:
