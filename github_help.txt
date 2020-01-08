@@ -1,1 +1,0 @@
-to sign out of account: git credential-manager delete https://github.com
