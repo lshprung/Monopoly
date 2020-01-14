@@ -17,13 +17,16 @@ void transaction(int, int, int);
 void go_to_jail(int); //handles whenever a player is sent to jail
 void build_house(int); //when a player wants to build a house/hotel
 void trade_deal(int); //when a player wants to initiate a trade deal
+int utility_cost(int, int); //calculates the cost of landing on a utility (given the multiplication factor, and the dice value)
 void chance(int); //what hapens when you land on CHANCE
 void community_chest(int); //what happens when you land on COMMUNITY CHEST
 void chance_shuffle(void); //shuffles chance cards
 void cc_shuffle(void); //shuffles community chest cards
 int determine_blanks(void); //determines what goes in the blank_count array, returns the size of the biggest name
+int exponent(int, int); //math function to calculate exponents
 
 //to do: create array to show whether a player is in or not (1 or 0) and use that (instead of int player_count) to determine payouts (such as opening night seats chance card)
+int dice_roll_value; //used to store output of dice_roll for the case of the player in jail
 char player_names[8][100]; 
 int player_colors[] = {14, 17, 15, 16, 18, 19, 20, 13};
 int blank_count[8]; //how many spaces for proper even spacing for each name
@@ -125,7 +128,6 @@ int cc_remaining_cards = 15;
 int main(){
 	int player_turn = 0; //who's turn is it?
 	int int_input; //any time the user needs to input a single number
-	int dice_roll_value; //used to store output of dice_roll for the case of the player in jail
 	int turn_over = 0; //used to determine when a player ends their turn
 	int case_flag = 1; //used to consider options only available from jail
 	int *p = &player_cash[0]; //pointer for if a player is in or not
@@ -227,10 +229,10 @@ int main(){
 						}
 
 						else if(int_input == 3 && jail_status[player_turn] && (goojf_ownership[0] == player_turn || goojf_ownership[1] == player_turn)){ //player has used a get out of jail free card to escape jail
+							printf("DEBUG OUTPUT: goojf chance: %s\ngoojf cc: %s\n", (goojf_ownership[0] >= 0 ? player_names[goojf_ownership[0]] : "the bank"), (goojf_ownership[1] >= 0 ? player_names[goojf_ownership[1]] : "the bank"));
 							if(goojf_ownership[0] == player_turn) goojf_ownership[0] == -1;
 							else goojf_ownership[1] = -1;
 							jail_status[player_turn] = 0;
-							printf("DEBUG OUTPUT: goojf chance: %s\ngoojf cc: %s\n", (goojf_ownership[0] >= 0 ? player_names[goojf_ownership[0]] : "the bank"), (goojf_ownership[1] >= 0 ? player_names[goojf_ownership[1]] : "the bank"));
 							printf("%s is no longer in JAIL\n\n", player_names[player_turn]);
 						}
 
@@ -285,7 +287,6 @@ int main(){
 							}
 							if(*p >= 0) break;
 						}
-						printf("TEST: player_turn = %d\n", player_turn);
 						printf("\n");
 					}
 
@@ -331,7 +332,6 @@ void space_action(int player){
 
 	switch(space){
 		case 0:
-			printf("Collect $200");
 			//if land on go = $400 mode is on, set accordinly
 			break;
 
@@ -414,7 +414,7 @@ void property_action(int player){
 	// 27 = Water Works                                             
 
 	int price[] = {60, 60, 100, 100, 120, 140, 140, 160, 180, 180, 200, 220, 220, 240, 260, 260, 280, 300, 300, 320, 350, 400, 200, 200, 200, 200, 150, 150}; //price of each unowned property
-	int rent[][6] = {{2, 10, 30, 90, 160, 250}, {4, 20, 60, 180, 320, 450}, {6, 30, 90, 270, 400, 550}, {6, 30, 90, 270, 400, 550}, {8, 40, 100, 300, 450, 600}, {10, 50, 150, 450, 625, 750}, {10, 50, 150, 450, 625, 750}, {12, 60, 180, 500, 700, 900}, {14, 70, 200, 550, 750, 950}, {14, 70, 200, 550, 750, 950}, {16, 80, 220, 600, 800, 1000}, {18, 90, 250, 700, 875, 1050}, {18, 90, 250, 700, 875, 1050}, {20, 100, 300, 750, 925, 1100}, {22, 110, 330, 800, 975, 1150}, {22, 110, 330, 800, 975, 1150}, {24, 120, 360, 850, 1025, 1200}, {26, 130, 390, 900, 1100, 1275}, {26, 130, 390, 900, 1100, 1275}, {28, 150, 450, 1000, 1200, 1400}, {35, 175, 500, 1100, 1300, 1500}, {50, 200, 600, 1400, 1700, 2000}, {25, 50, 100, 200, 0, 0}, {25, 50, 100, 200, 0, 0}, {25, 50, 100, 200, 0, 0}, {25, 50, 100, 200, 0, 0}};
+	int rent[][6] = {{2, 10, 30, 90, 160, 250}, {4, 20, 60, 180, 320, 450}, {6, 30, 90, 270, 400, 550}, {6, 30, 90, 270, 400, 550}, {8, 40, 100, 300, 450, 600}, {10, 50, 150, 450, 625, 750}, {10, 50, 150, 450, 625, 750}, {12, 60, 180, 500, 700, 900}, {14, 70, 200, 550, 750, 950}, {14, 70, 200, 550, 750, 950}, {16, 80, 220, 600, 800, 1000}, {18, 90, 250, 700, 875, 1050}, {18, 90, 250, 700, 875, 1050}, {20, 100, 300, 750, 925, 1100}, {22, 110, 330, 800, 975, 1150}, {22, 110, 330, 800, 975, 1150}, {24, 120, 360, 850, 1025, 1200}, {26, 130, 390, 900, 1100, 1275}, {26, 130, 390, 900, 1100, 1275}, {28, 150, 450, 1000, 1200, 1400}, {35, 175, 500, 1100, 1300, 1500}, {50, 200, 600, 1400, 1700, 2000}}; 
 	//rent index guide:
 	//0 = rent with 0 houses/1 railroad
 	//1 = rent with 1 house/2 railroads
@@ -422,6 +422,8 @@ void property_action(int player){
 	//3 = '    '    3 '     4 '
 	//4 = '    '    4 '
 	//5 = rent with hotel
+	
+	//NOTICE: rents of railroads has been removed! (this may potentially cause issues elsewhere)
 	
 	//to add: mortgage prices
 	
@@ -433,6 +435,7 @@ void property_action(int player){
 	
 	int space;
 	int group;
+	int num_railroads; //number of railroads rr_owner owns
 	int final_cost; //final cost assuming player owns the property after determining houses and monopolies
 	int done = 0; //used to end this menu if options 1 or 2 are submitted
 	int input;
@@ -494,11 +497,32 @@ void property_action(int player){
 	}
 
 	else{
-		final_cost = rent[space][house_count[space]]; //calculate how much it costs to land on this property
-		if(!house_count[space] && monopoly_status[group]) final_cost*=2; //double this if it is a monopoly with 0 houses
 		if(property_ownership[space] == player) printf("Relax, you own this property\n"); //if player owns the property
-		else{ //if somebody else owns the property
-			printf("%s owns %s. %s owes %s $%d\n", player_names[property_ownership[space]], space_names[player_space[player]], player_names[player], player_names[property_ownership[space]], final_cost); 
+		else{ //player does not own the property
+			final_cost = 0; //for safety, start final_cost at 0
+
+			if(space <= 21){ //calculate rent on a colored property
+				final_cost = rent[space][house_count[space]]; //calculate how much it costs to land on this property
+				if(!house_count[space] && monopoly_status[group]) final_cost*=2; //double this if it is a monopoly with 0 houses
+			}
+
+			else if(space <= 25){ //calculate rent on a railroad
+				num_railroads = 0;
+				for(i = 22; i <= 25; i++){ //check ownership on each railroad
+					if(property_ownership[i] == property_ownership[space]) num_railroads++;
+				}
+
+				final_cost = 25 * (exponent(2, num_railroads-1));
+			}
+
+			else{
+				num_railroads = 0; //re-use num_railroads (this time, think of it as num_utilities)
+				if(property_ownership[26] == property_ownership[space]) num_railroads++;
+				if(property_ownership[27] == property_ownership[space]) num_railroads++;
+				final_cost = utility_cost(4+6*(num_railroads-1), dice_roll_value);
+			}
+
+			printf("%s owns %s. %s owes %s $%d\n", player_names[property_ownership[space]], space_names[player_space[player]], player_names[player], player_names[property_ownership[space]], final_cost); //final_cost finalized, tell user, then make transaction
 			transaction(property_ownership[space], player, final_cost); 
 		}
 	}
@@ -870,6 +894,7 @@ void build_house(int player){
 
 	int flag; //used to ensure the player has at least one monopoly
 	char group_name[][13] = {"PURPLE/BROWN", "LIGHT BLUE", "PINK", "ORANGE", "RED", "YELLOW", "GREEN", "DARK BLUE"};
+	int group_color[] = {9, 12, 10, 5, 1, 6, 3, 11}; //what color to print for each group
 	int house_costs[8] = {50, 50, 100, 100, 150, 150, 200, 200};
 	int valid_build[3]; //used to ensure that you are not ahead in building in any one property
 	int option; //regular option
@@ -890,7 +915,10 @@ void build_house(int player){
 			if(*p && player == property_ownership[group_reps[i]]){ //ensure there is a monopoly owned by the player before listing the option
 				if(!flag) printf("What Group do you want to Build/Sell in?\n");
 				flag++;
-				printf("%d) Build/Sell Houses in the %s group\n", i+1, group_name[i]);
+				change_color(group_color[i]);
+				printf("%d) Build/Sell Houses in the %s group", i+1, group_name[i]);
+				change_color(0);
+				printf("\n");
 			}
 			i++;
 			p++;
@@ -934,13 +962,51 @@ void build_house(int player){
 				}
 				for(i = 1; i <= group_prop_count*2; i+=2){
 					if(*h < 5 && valid_build[(i-1)/2]){ //make sure there isn't already a hotel (5 houses) and that the property doesn't have more houses (equal building rule)
-						printf("%d) Build a House on %s (currently %d house%s, houses cost $%d)\n", i, prop_names[prop], *h, (*h != 1 ? "s" : ""), house_costs[group_option-1]); 
+						printf("%d) ", i); 
+						change_color(5);
+						printf("Build ");
+						change_color(0);
+						printf("a %s on ", (*h < 4 ? "House" : "Hotel"));
+						change_color(5);
+						printf("%s ", prop_names[prop]); 
+						change_color(0); //color the words Build/Sell and the property name yellow/gold
+						printf("(");
+						change_color(3);
+						printf("currently ");
+						change_color(4);
+						printf("%d ", *h);
+						change_color(3);
+						printf("house%s", (*h != 1 ? "s" : ""));
+						change_color(0);
+						printf(", houses cost $%d)\n", house_costs[group_option-1]); 
 						valid_option[i-1] = 1;
 					}
 					if(*h > 0){ //make sure there is at least one house to sell
-						printf("%d) Sell  a House on %s (currently ", i+1, prop_names[prop]); 
-						if(*h == 5) printf("a hotel, ");
-						else printf("%d house%s, ", *h, (*h != 1 ? "s" : ""));
+						printf("%d) ", i+1);
+						change_color(5);
+						printf("Sell "); 
+						change_color(0);
+						printf("a House on ");
+						change_color(5);
+						printf("%s ", prop_names[prop]); 
+						change_color(0);
+						printf("(");
+						if(*h == 5){
+							change_color(2);
+							printf("currently a hotel"); 
+							change_color(0);
+							printf(", ");
+						}
+						else{
+							change_color(3);
+							printf("currently "); 
+							change_color(4);
+							printf("%d ", *h);
+							change_color(3);
+							printf("house%s", (*h != 1 ? "s" : ""));
+							change_color(0);
+							printf(", ");
+						}
 						printf("houses sell for $%d)\n", house_costs[group_option-1]/2);
 						valid_option[i] = 1;
 					}
@@ -996,7 +1062,12 @@ void trade_deal(int player){
 	return;
 }
 
-void chance(int player){
+int utility_cost(int factor, int dice_val){ //dice_val will typically be the dice_roll_value global
+
+	return (factor * dice_val);
+}
+
+void chance(int player){ //TODO: problem regarding index out of bounds 
 	//printf("WIP");
 
 	// Chance Guide //
@@ -1393,4 +1464,15 @@ int determine_blanks(){
 	}
 
 	return biggest_name;
+}
+
+int exponent(int base, int power){
+	int total = 1;
+
+	while(power > 0){
+		total*=base;
+		power--;
+	}
+
+	return total;
 }
