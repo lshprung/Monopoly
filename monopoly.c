@@ -3,8 +3,10 @@
 #include <time.h>
 #include <string.h>
 #include "color.h"
+#define MAX_PLAYERS 8
 
 int dice_roll(int); //what happens when you roll the dice, returns the value of the dice and whether its a double
+void dice_dot_determiner(int, int, char *); //figure out dice_dots (int and int are dice1 and dice2)
 void space_action(int); //what happens when you land on the space
 void property_action(int); //what happens when you land on a property
 void check_monopoly(int); //function to check if a monopoly has been made (the argument is the space that has just been acquired)
@@ -25,22 +27,21 @@ void cc_shuffle(void); //shuffles community chest cards
 int determine_blanks(void); //determines what goes in the blank_count array, returns the size of the biggest name
 int exponent(int, int); //math function to calculate exponents
 
-//to do: create array to show whether a player is in or not (1 or 0) and use that (instead of int player_count) to determine payouts (such as opening night seats chance card)
 int dice_roll_value; //used to store output of dice_roll for the case of the player in jail
-char player_names[8][100]; 
+char player_names[MAX_PLAYERS][100]; 
 int player_colors[] = {14, 17, 15, 16, 18, 19, 20, 13};
-int blank_count[8]; //how many spaces for proper even spacing for each name
-int player_cash[8] = {-1, -1, -1, -1, -1, -1, -1, -1}; //set to -1 if the player is eliminated from the game
-int player_space[8];
+int blank_count[MAX_PLAYERS]; //how many spaces for proper even spacing for each name
+int player_cash[MAX_PLAYERS] = {-1, -1, -1, -1, -1, -1, -1, -1}; //set to -1 if the player is eliminated from the game
+int player_space[MAX_PLAYERS];
 int property_ownership[28]; //-1 = unowned
-int monopoly_status[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+int monopoly_status[MAX_PLAYERS] = {0, 0, 0, 0, 0, 0, 0, 0};
 int group_reps[] = {0, 2, 5, 8, 11, 14, 17, 20}; //properties that represent their respective group (to determine who owns that monopoly
 int house_count[28]; //number of houses on each property
 //8 property groups (0 if not a monopoly (all owned by 1 player), 1 if yes), if it is set to 1, building houses becomes possible
 int goojf_ownership[] = {-1, -1};
 //get out of jail free cards: 0th is from chance deck, 1th is cc deck
 //-1 = unowned, player # otherwise
-int jail_status[8]; //0 if player is not in jail, 1 if he is
+int jail_status[MAX_PLAYERS]; //0 if player is not in jail, 1 if he is
 char space_names[][22] = {"GO", "Mediterranean Avenue", "Community Chest", "Baltic Avenue", "Income Tax", "Reading Railroad", "Oriental Avenue", "Chance", "Vermont Avenue", "Connecticut Avenue", "Just Visiting!", "St. Charles Place", "Electric Company", "States Avenue", "Virginia Avenue", "Pennsylvania Railroad", "St. James Place", "Community Chest", "Tennessee Avenue", "New York Avenue", "FREE PARKING", "Kentucky Avenue", "Chance", "Indiana Avenue", "Illinois Avenue", "B & O Railroad", "Atlantic Avenue", "Ventnor Avenue", "Water Works", "Marvin Gardens", "GO TO JAIL", "Pacific Avenue", "North Carolina Avenue", "Community Chest", "Pennsylvania Avenue", "Short Line", "Chance", "Park Place", "Luxury Tax", "Boardwalk"};
 char prop_names[][22] = {"Mediterranean Avenue", "Baltic Avenue", "Oriental Avenue", "Vermont Avenue", "Connecticut Avenue", "St. Charles Place", "States Avenue", "Virginia Avenue", "St. James Place", "Tennessee Avenue", "New York Avenue", "Kentucky Avenue", "Indiana Avenue", "Illinois Avenue", "Atlantic Avenue", "Ventnor Avenue", "Marvin Gardens", "Pacific Avenue", "North Carolina Avenue", "Pennsylvania Avenue", "Park Place", "Boardwalk", "Reading Railroad", "Pennsylvania Railroad", "B & O Railroad", "Short Line", "Electric Company", "Water Works"}; //array for properties (no GO, JUST VISITING, etc.)
 int chance_deck[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
@@ -49,7 +50,7 @@ int player_count = 0; //how many players
 int longest_name; //length in chars of the longest entered name
 int dice_roll_over;
 int doubles_count; //counts number of doubles rolled (if this number exceeds 2, go directly to jail)
-int jail_roll_count[8]; //counts number of attempts to roll out of jail for each player
+int jail_roll_count[MAX_PLAYERS]; //counts number of attempts to roll out of jail for each player
 int chance_remaining_cards = 15;
 int cc_remaining_cards = 15;
 
@@ -148,8 +149,8 @@ int main(){
 		printf("How many players? ");
 		fflush(stdout);
 		scanf("%d", &player_count);
-		if(player_count > 1 && player_count <= 8) break;
-		else printf("Please enter a player count between 2 and 8\n");
+		if(player_count > 1 && player_count <= MAX_PLAYERS) break;
+		else printf("Please enter a player count between 2 and MAX_PLAYERS\n");
 	}
 
 	for(i = 0; i < player_count; i++){ //initialize each player
@@ -164,7 +165,7 @@ int main(){
 	longest_name = determine_blanks();
 
 	// Getting into Gameplay //
-	// for now, assume players play in order
+	// for now, assume players play in order - TODO: add roll to get player order
 	while(player_count > 1){ //when player count == 1, the game is over (because there is only one person left alive)
 		turn_over = 0;
 		dice_roll_over = 0;
@@ -174,13 +175,16 @@ int main(){
 			change_color(player_colors[player_turn]);
 			printf("  ");
 			change_color(13); //reset background
-			printf("It is %s's turn!", player_names[player_turn]);
+			if(doubles_count && !dice_roll_over) printf("You rolled doubles, %s. Go Again!", player_names[player_turn]); //subsequent roll after getting doubles
+			else printf("It is %s's turn!", player_names[player_turn]); //first roll
 			change_color(player_colors[player_turn]);
 			printf("  ");
 			change_color(13); //reset background
 			printf("\n");
 
-			if(jail_status[player_turn]) printf("\n%s is in JAIL\n", player_names[player_turn]);
+			printf("\n%s is ", player_names[player_turn]); //let the player know what space they are on at the beginning of each turn
+			if(jail_status[player_turn]) printf("in JAIL\n", player_names[player_turn]);
+			else printf("on %s\n", space_names[player_space[player_turn]]);
 
 			printf("\n");
 			if(!dice_roll_over){
@@ -196,7 +200,7 @@ int main(){
 			printf("4) View Game Stats: Money\n");
 			printf("5) View Game Stats: Property Ownership and Information\n");
 			printf("6) View Game Stats: Board Info\n");
-			printf("7) Build/Sell Houses/Hotels\n"); //maybe make a conditional to decide whether this option appears
+			printf("7) Build/Sell Houses/Hotels\n"); //TODO: maybe make a conditional to decide whether this option appears
 			printf("8) Initiate a Trade Deal\n");
 			if(dice_roll_over) printf("9) End Turn\n");
 			fflush(stdout);
@@ -228,7 +232,7 @@ int main(){
 							printf("%s is no longer in JAIL\n\n", player_names[player_turn]);
 						}
 
-						else if(int_input == 3 && jail_status[player_turn] && (goojf_ownership[0] == player_turn || goojf_ownership[1] == player_turn)){ //player has used a get out of jail free card to escape jail
+						else if(int_input == 3 && jail_status[player_turn] && (goojf_ownership[0] == player_turn || goojf_ownership[1] == player_turn)){ //player has used a get out of jail free card to escape jail TODO: fix bug of goojf not going back into the deck
 							printf("DEBUG OUTPUT: goojf chance: %s\ngoojf cc: %s\n", (goojf_ownership[0] >= 0 ? player_names[goojf_ownership[0]] : "the bank"), (goojf_ownership[1] >= 0 ? player_names[goojf_ownership[1]] : "the bank"));
 							if(goojf_ownership[0] == player_turn) goojf_ownership[0] == -1;
 							else goojf_ownership[1] = -1;
@@ -281,7 +285,7 @@ int main(){
 						while(1){
 							player_turn++;
 							p++;
-							if(player_turn >= 8){
+							if(player_turn >= MAX_PLAYERS){
 								player_turn = 0;
 								p = &player_cash[0];
 							}
@@ -294,22 +298,40 @@ int main(){
 		}
 	}
 
+	for(i = 0; i < MAX_PLAYERS; i++){
+		if(player_cash[i] >= 0) break;
+	}
+	printf("Congratulations, %s! You are the winner of Monopoly!\n", player_names[i]); //Game over: Game names the winner
+	//TODO: maybe add coloring to make a fancy ending screen
+
 	return 0;
 }
 
 int dice_roll(int player){
 	int dice1, dice2;
+	char dice_dots[14] = {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '}; //7 dots for each dice
 
 	//some shit here is not working. I don't want to have to rely on flooding the code with fflush()
 
 	if(doubles_count == 2) printf("Be Careful! One more doubles and you go to JAIL...\n"); //add changing color, maybe change place of this statement (or fix fgetc bug)
-	printf("%s Roll!\n", player_names[player]);
-	fflush(stdout);
-	fgetc(stdin);
-	fflush(stdout);
+	printf("%s Roll!", player_names[player]);
+	fgetc(stdin); //TODO: still not working
+	printf("\n");
 
-	dice1 = (rand() % 6)+1;
-	dice2 = (rand() % 6)+1;
+	dice1 = (rand() % 6)+1; //determine dice 1
+	dice2 = (rand() % 6)+1; //determine dice 2
+
+	//figure out dice_dots
+	dice_dot_determiner(dice1, dice2, &dice_dots[0]);
+
+	//TODO Idea: Show art of the dice
+	printf(" _______    _______\n"); //each dice is 7 _ long
+	printf("|       |  |       |\n"); //body is 7 ' ' long
+	printf("| %c   %c |  | %c   %c |\n", dice_dots[0], dice_dots[3], dice_dots[7], dice_dots[10]);
+	printf("| %c %c %c |  | %c %c %c |\n", dice_dots[1], dice_dots[6], dice_dots[4], dice_dots[8], dice_dots[13], dice_dots[11]);
+	printf("| %c   %c |  | %c   %c |\n", dice_dots[2], dice_dots[5], dice_dots[9], dice_dots[12]);
+	printf("|_______|  |_______|\n\n");
+
 	if(dice1 == dice2){
 		doubles_count++;
 		printf("Doubles! ");
@@ -325,6 +347,63 @@ int dice_roll(int player){
 	fflush(stdout);
 
 	return (dice1+dice2);
+}
+
+void dice_dot_determiner(int dice_val1, int dice_val2, char *p){
+	//dot arr guide
+	// 0   3
+	// 1 6 4
+	// 2   5
+	//
+	// 7   10
+	// 8 13 11
+	// 9   12
+	
+	int val_arr[] = {dice_val1, dice_val2};
+	int i;
+
+	for(i = 0; i < 2; i++){
+		switch(val_arr[i]){
+			case 1:
+				*(p+6+i*7) = 'X';
+				break;
+			case 2:
+				*(p+2+i*7) = 'X';
+				*(p+3+i*7) = 'X';
+				break;
+			case 3:
+				*(p+2+i*7) = 'X';
+				*(p+3+i*7) = 'X';
+				*(p+6+i*7) = 'X';
+				break;
+			case 4:
+				*(p+0+i*7) = 'X';
+				*(p+2+i*7) = 'X';
+				*(p+3+i*7) = 'X';
+				*(p+5+i*7) = 'X';
+				break;
+			case 5:
+				*(p+0+i*7) = 'X';
+				*(p+2+i*7) = 'X';
+				*(p+3+i*7) = 'X';
+				*(p+5+i*7) = 'X';
+				*(p+6+i*7) = 'X';
+				break;
+			case 6:
+				*(p+0+i*7) = 'X';
+				*(p+1+i*7) = 'X';
+				*(p+2+i*7) = 'X';
+				*(p+3+i*7) = 'X';
+				*(p+4+i*7) = 'X';
+				*(p+5+i*7) = 'X';
+				break;
+			default:
+				printf("ERROR: bad arg\n");
+
+		}
+	}
+
+	return;
 }
 
 void space_action(int player){
@@ -657,7 +736,7 @@ void game_stats(int option){
 
 	switch(option){
 		case 1:
-			for(i = 0; i < 8; i++){
+			for(i = 0; i < MAX_PLAYERS; i++){
 				if(player_cash[i] >= 0){
 					printf("%s ", player_names[i]);
 					for(j = 0; j < blank_count[i]; j++){
@@ -772,7 +851,7 @@ void game_stats(int option){
 
 		case 3:
 			//idea to make ascii art of the board
-			for(i = 0; i < 8; i++){
+			for(i = 0; i < MAX_PLAYERS; i++){
 				if(player_cash[i] >= 0){
 					printf("%s ", player_names[i]);
 					for(j = 0; j < blank_count[i]; j++){
@@ -1191,7 +1270,7 @@ void chance(int player){ //TODO: problem regarding index out of bounds
 			printf("\"You have been Elected Chairman of the Board\nPay Each Player $50\"\n");
 			change_color(0);
 			printf("%s owes %d players $50 (totalling $%d)\n", player_names[player], player_count-1, 50 * (player_count-1));
-			for(i = 0; i < 8; i++){
+			for(i = 0; i < MAX_PLAYERS; i++){
 				if(player_cash[i] >= 0){
 					if(player != i) transaction(i, player, 50);
 				}
@@ -1326,7 +1405,7 @@ void community_chest(int player){
 			printf("\"Grand Opera Opening\nCollect $50 from every Player for Opening Night Seats\"\n");
 			change_color(0);
 			printf("%s shall collect $50 from %d players (totalling $%d)\n", player_names[player], player_count-1, 50 * (player_count-1));
-			for(i = 0; i < 8; i++){
+			for(i = 0; i < MAX_PLAYERS; i++){
 				if(player_cash[i] >= 0){
 					if(player != i) transaction(player, i, 50);
 				}
